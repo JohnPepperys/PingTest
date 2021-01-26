@@ -1,0 +1,42 @@
+TARGET=PingTestHost
+
+all: $(TARGET).exe 
+
+RM=del
+
+START=start
+LOG_FILES=log_files
+PINGFUNC=pingfunc
+STRINGWORK=stringwork
+LOAD_CONFIG=load_config
+
+WIN_LIBS=
+LD_FLAGS=
+
+
+OBJS=$(LOG_FILES).obj $(LOAD_CONFIG).obj $(PINGFUNC).obj $(STRINGWORK).obj
+COMMON_FILES=makefile1.vc
+
+$(LOAD_CONFIG).obj: $(LOAD_CONFIG).c 
+	$(CC) -c $(USER_DEFINES) -Fo$(LOAD_CONFIG).obj $(LOAD_CONFIG).c
+
+$(LOG_FILES).obj: $(LOG_FILES).c 
+	$(CC) -c $(USER_DEFINES) -Fo$(LOG_FILES).obj $(LOG_FILES).c
+
+$(PINGFUNC).obj: $(PINGFUNC).c 
+	$(CC) -c $(USER_DEFINES) -Fo$(PINGFUNC).obj $(PINGFUNC).c
+
+$(STRINGWORK).obj: $(STRINGWORK).c 
+	$(CC) -c $(USER_DEFINES) -Fo$(STRINGWORK).obj $(STRINGWORK).c
+	
+$(TARGET).exe: $(START).c $(DEPS) $(OBJS)
+	$(CC) -Fe$(TARGET).exe $(USER_DEFINES) $(CFLAGS1) $(START).c $(OBJS) $(WIN_LIBS) $(LD_FLAGS)
+
+	
+clean:
+	$(RM)  $(LOG_FILES).obj
+	$(RM)  $(START).obj
+	$(RM)  $(PINGFUNC).obj
+	$(RM)  $(LOAD_CONFIG).obj
+	$(RM)  $(STRINGWORK).obj
+	$(RM)  $(TARGET).exe
