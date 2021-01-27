@@ -10,6 +10,18 @@
 #------------------------------------*/
 
 
+/* --------------------------------- 
+#//Project:		PinTest - Ping Testing
+#//File:		pingfunc.c
+#//Date:		27.01.2021
+#//Author:		T.O.
+#//Version:		1.2
+
+#//
+#//
+#------------------------------------*/
+
+
 #include "common_project.h"
 
 
@@ -17,7 +29,75 @@
 #pragma comment(lib, "Ws2_32.lib")
 
 FILE *pingFile = NULL, *resultFile = NULL;
+char current_dir[1024];
+int dir_level = 0;
 // --------------------------------------------------- 
+
+
+void pn_ChangeCurrentDirectory(void)
+{
+
+char new_directory[1024];
+char new_file_name[1024];
+int i;
+DWORD res1;
+BOOL flag;
+
+	memset(current_dir, 0, 1024);
+	memset(new_directory, 0, 1024);
+	memset(new_file_name, 0, 1024);
+	
+	res1 = GetCurrentDirectory( sizeof(current_dir), current_dir );
+	if( res1 == 0 )
+	{
+		printf("Function pn_ChangeCurrentDirectory. GetCurrentDirectory failed (%d)\n", GetLastError());
+		return;
+	}
+	
+	// cfg_Maindata.result_logfile	
+	flag = FALSE;
+	for( i=0; i < sizeof(cfg_Maindata.result_logfile); i++ )
+	{
+		if( cfg_Maindata.log_filename[i] == 0x5C )
+		{
+			break;
+		}
+		new_directory[i] = cfg_Maindata.result_logfile[i];
+	}
+	
+	if( i == sizeof(cfg_Maindata.result_logfile) )
+	{
+		return;
+	}
+	else
+	{
+		if( SetCurrentDirectory( new_directory ) )
+		{
+			dir_level++;
+			return;
+		}
+		else
+		{
+			if( CreateDirectory( new_directory, NULL ) )
+			{
+				SetCurrentDirectory( new_directory );
+				dir_level++;
+				return;
+			}
+			else
+			{
+				printf( "Function pn_ChangeCurrentDirectory. CreateDirectory failed (%d)\n", GetLastError() );
+				return;
+			}
+		}
+			
+	}
+	
+	return;
+}
+
+
+// --------------------------------------------------------------------------------------------------
 
 
 
@@ -31,7 +111,7 @@ int pn_OnePing( unsigned char *ipaddress, unsigned long tmout, int printflag )
 unsigned long ipaddr = INADDR_NONE;
 int ReplySize, dwRetVal, dwError, res1, i, j, k;
 unsigned char *ReplyBuffer;
-unsigned char SendData[] = "Hello Rostex Network";
+unsigned char SendData[] = "Hello Ros Network";
 PICMP_ECHO_REPLY pEchoReply;
 struct in_addr ReplyAddr;
 HANDLE hIcmpFile;
@@ -172,14 +252,10 @@ unsigned char *temp = NULL;
 			logMessage( log_message, sizeof( log_message ) );
 		}
 
-		// print in special log file
-		// printf("Func: OnePing, cfg_Maindata.log_filename: %s\n", cfg_Maindata.log_filename );
-		res1 = GetCurrentDirectory( sizeof(current_directory), current_directory );
-		// printf("Func: OnePing, get_current_dir: %s\n", current_directory );
-		memset( new_directory, 0, sizeof(new_directory) );
-		memset( file_name, 0, sizeof(new_directory) );
+		
+		// ------------------------------- print in special log file ------------------------------------------------------------
 		res2 = FALSE;
-		for( i = 0, j = 0, k = 0; i < sizeof(cfg_Maindata.log_filename); i++ )
+		for( i = 0, j = 0; i < sizeof(cfg_Maindata.log_filename); i++ )
 		{
 			if( cfg_Maindata.log_filename[i] == 0x5C )
 			{
@@ -188,24 +264,10 @@ unsigned char *temp = NULL;
 			}
 			if( res2 )
 			{
-				new_directory[j] = cfg_Maindata.log_filename[i];
+				file_name[j] =  cfg_Maindata.log_filename[i];
 				j++;
 			}
-			else {
-				file_name[k] =  cfg_Maindata.log_filename[i];
-				k++;
-			}
 		}
-		res2 = SetCurrentDirectory( new_directory );
-		if( !res2 )
-		{
-			// printf( "Func: OnePing, new_dir: %s. Sec cur dir FAIL %d.\n", new_directory, GetLastError() );
-			if( !CreateDirectory( new_directory, NULL ) )
-			{
-				printf( "Func: OnePing, CreateDirectory is FAIL: %d\n", GetLastError() );
-			}
-		}
-		// pingFile = fopen( cfg_Maindata.log_filename, "a" );
 		pingFile = fopen( file_name, "a" );
 		if( pingFile != NULL )
 		{
@@ -231,6 +293,7 @@ unsigned char *temp = NULL;
 			} 
 		} 
 		fclose( pingFile ); 
+		SetCurrentDirectory( ".." );
 
 
 		return pEchoReply->Status;
@@ -309,9 +372,9 @@ int res[CFG_MAX_IP_TARGET], sost[CFG_MAX_IP_TARGET], i[CFG_MAX_IP_TARGET];
 unsigned char logmess[2*CFG_MAX_LEN_CONFIG_STRING];
 SYSTEMTIME sm;
 int k;
-int m, j, x;
-char new_directory[1024];
+int m, x;
 char new_file_name[1024];
+char tmp[1024];
 BOOL res2;
 
 	
@@ -327,6 +390,23 @@ BOOL res2;
 		i[k] = 0;
 	}
 	
+	pn_ChangeCurrentDirectory();
+	memset( new_file_name, 0, sizeof(new_file_name) );
+	res2 = FALSE;
+	for( m = 0, x = 0; m < strlength(cfg_Maindata.result_logfile); m++ )
+	{
+		if( cfg_Maindata.result_logfile[m] == 0x5C )
+		{
+			res2 = TRUE;
+			m++;
+		}
+		else {
+			new_file_name[x] = cfg_Maindata.result_logfile[m];
+			x++;
+		}
+	}
+	GetCurrentDirectory( 1024, tmp );
+	printf("!!!: %s %s\n", tmp, new_file_name );
 	
 	for( colping = 0; ; colping++ )
 	{
@@ -359,33 +439,8 @@ BOOL res2;
 							printf( "%.2d.%.2d.%.4d  %.2d:%.2d:%.2d Cool!!! Connection with ip host %s state\n", 
 									sm.wDay, sm.wMonth, sm.wYear, sm.wHour, sm.wMinute, sm.wSecond, cfg_Maindata.ip_target[k] );
 							// open result file 
-							// printf( "pn_MainPingfunction: %s\n", cfg_Maindata.result_logfile );
-							memset( new_directory, 0, sizeof(new_directory) );
-							memset( new_file_name, 0, sizeof(new_file_name) );
-							res2 = FALSE;
-							for( m = 0, j = 0, x = 0; m < strlength(cfg_Maindata.result_logfile); m++ )
-							{
-								if( cfg_Maindata.result_logfile[m] == 0x5C )
-								{
-									res2 = TRUE;
-									m++;
-								}
-								if( !res2 )
-								{
-									new_directory[j] = cfg_Maindata.result_logfile[m];
-									j++;
-								}
-								else {
-									new_file_name[x] = cfg_Maindata.result_logfile[m];
-									x++;
-								}
-							}
+							printf( "pn_MainPingfunction new_file_name: %s\n", new_file_name );
 							// resultFile = fopen( cfg_Maindata.result_logfile, "a" );
-							if( !SetCurrentDirectory( new_directory ) )
-							{
-								res2 = CreateDirectory( new_directory, NULL );
-								SetCurrentDirectory( new_directory );
-							}
 							resultFile = fopen( new_file_name, "a" );
 							if( resultFile == NULL )
 							{
@@ -414,7 +469,8 @@ BOOL res2;
 							printf( "%.2d.%.2d.%.4d  %.2d:%.2d:%.2d Bad!!! Connection with ip host %s LOST\n", 
 									sm.wDay, sm.wMonth, sm.wYear, sm.wHour, sm.wMinute, sm.wSecond, cfg_Maindata.ip_target[k] );
 							// open result file 
-							resultFile = fopen( cfg_Maindata.result_logfile, "a" );
+							
+							resultFile = fopen( new_file_name, "a" );
 							if( resultFile == NULL )
 							{
 								if( (printflag & 1) > 0 )
@@ -445,6 +501,11 @@ BOOL res2;
 		Sleep( cfg_Maindata.ping_period*1000 );
 	}
 	
+	if( dir_level > 0 )
+	{
+		SetCurrentDirectory(current_dir);
+	}
+
 	return ERR_SUCCESS;
 }
 
